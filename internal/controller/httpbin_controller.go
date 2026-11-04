@@ -148,8 +148,8 @@ func (r *HttpBinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			"HttpBinDeployment.Name", httpBinDeployment.Name,
 			"HttpBinDeployment.Spec", httpBinDeployment.Spec)
 
-		// Deployment created successfully - return and requeue
-		return ctrl.Result{Requeue: true}, nil
+		// Deployment created successfully - the Owns() watch triggers the next reconcile, requeue as a safety net
+		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	} else if err != nil {
 		logger.Error(err, "Failed to get HttpBinDeployment from remote cluster",
 			"error", err,

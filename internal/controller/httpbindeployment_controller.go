@@ -44,6 +44,7 @@ const (
 	// selector labels should be in a list and filtered with that.
 	labelHttpbinCr = "httpbin_cr"
 	labelApp       = "app"
+	appName        = "httpbin"
 
 	// labelRemoteObjectCluster is set by the api-syncagent on synced objects
 	// and holds the logical cluster (kcp workspace) of the remote object.
@@ -173,7 +174,7 @@ func (r *HttpBinDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	err = r.LocalClient.Get(ctx, types.NamespacedName{
 		Name:      deploymentName,
-		Namespace: "default",
+		Namespace: metav1.NamespaceDefault,
 	}, deployment)
 
 	if err != nil && errors.IsNotFound(err) {
@@ -209,7 +210,7 @@ func (r *HttpBinDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	err = r.LocalClient.Get(ctx, types.NamespacedName{
 		Name:      svc.Name,
-		Namespace: "default",
+		Namespace: metav1.NamespaceDefault,
 	}, service)
 
 	if err != nil && errors.IsNotFound(err) {
@@ -245,7 +246,7 @@ func (r *HttpBinDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if *fLocalIngress {
 		err = r.LocalClient.Get(ctx, types.NamespacedName{
 			Name:      svc.Name,
-			Namespace: "default",
+			Namespace: metav1.NamespaceDefault,
 		}, ingress)
 		desiredIngress := r.ingressForHttpBin(httpBinDeployment, svc)
 
@@ -272,7 +273,7 @@ func (r *HttpBinDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		ingress = desiredIngress
 	} else {
 		if *fLocalIngressUpdate {
-			err = r.LocalClient.Get(ctx, types.NamespacedName{Name: "msp", Namespace: "default"}, ingress)
+			err = r.LocalClient.Get(ctx, types.NamespacedName{Name: "msp", Namespace: metav1.NamespaceDefault}, ingress)
 			if err != nil {
 				if errors.IsNotFound(err) {
 					logger.Info("skipping ingress update, ingress does not exists")
@@ -305,7 +306,7 @@ func (r *HttpBinDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if *fLocalHttpRoute {
 		err = r.LocalClient.Get(ctx, types.NamespacedName{
 			Name:      svc.Name,
-			Namespace: "default",
+			Namespace: metav1.NamespaceDefault,
 		}, httpRoute)
 
 		if err != nil && errors.IsNotFound(err) {
@@ -494,7 +495,7 @@ func (r *HttpBinDeploymentReconciler) finalizeHttpBinDeployment(ctx context.Cont
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: "default",
+			Namespace: metav1.NamespaceDefault,
 		},
 	}
 	if err := r.LocalClient.Delete(ctx, deployment); err != nil && !errors.IsNotFound(err) {
@@ -506,7 +507,7 @@ func (r *HttpBinDeploymentReconciler) finalizeHttpBinDeployment(ctx context.Cont
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: "default",
+			Namespace: metav1.NamespaceDefault,
 		},
 	}
 	if err := r.LocalClient.Delete(ctx, service); err != nil && !errors.IsNotFound(err) {
@@ -515,7 +516,7 @@ func (r *HttpBinDeploymentReconciler) finalizeHttpBinDeployment(ctx context.Cont
 
 	// Clean up ingress DNS entry
 	ingress := &networkingv1.Ingress{}
-	err := r.LocalClient.Get(ctx, types.NamespacedName{Name: "msp", Namespace: "default"}, ingress)
+	err := r.LocalClient.Get(ctx, types.NamespacedName{Name: "msp", Namespace: metav1.NamespaceDefault}, ingress)
 	if err == nil {
 		// Construct DNS name same way as in Reconcile
 		dnsName := r.getDNSName(httpBinDeployment)
@@ -586,7 +587,7 @@ func (r *HttpBinDeploymentReconciler) httpRouteNeedsUpdate(httpBinDeployment *or
 func (r *HttpBinDeploymentReconciler) deploymentForHttpBin(m *orchestratev1alpha1.HttpBinDeployment) *appsv1.Deployment {
 	// Create minimal, static selector labels - these must never change
 	selectorLabels := map[string]string{
-		labelApp:       "httpbin",
+		labelApp:       appName,
 		labelHttpbinCr: getSelectorValue(m),
 	}
 
@@ -619,7 +620,7 @@ func (r *HttpBinDeploymentReconciler) deploymentForHttpBin(m *orchestratev1alpha
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.getResourceName(m),
-			Namespace:   "default",
+			Namespace:   metav1.NamespaceDefault,
 			Labels:      podLabels,
 			Annotations: m.Spec.Deployment.Annotations,
 		},
@@ -636,7 +637,7 @@ func (r *HttpBinDeploymentReconciler) deploymentForHttpBin(m *orchestratev1alpha
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image:           httpbinImage,
-						Name:            "httpbin",
+						Name:            appName,
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -673,7 +674,7 @@ func (r *HttpBinDeploymentReconciler) deploymentForHttpBin(m *orchestratev1alpha
 func (r *HttpBinDeploymentReconciler) serviceForHttpBin(m *orchestratev1alpha1.HttpBinDeployment) *corev1.Service {
 	// Create minimal, static selector labels - these must never change
 	selectorLabels := map[string]string{
-		labelApp:       "httpbin",
+		labelApp:       appName,
 		labelHttpbinCr: getSelectorValue(m),
 	}
 
@@ -711,7 +712,7 @@ func (r *HttpBinDeploymentReconciler) serviceForHttpBin(m *orchestratev1alpha1.H
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.getResourceName(m),
-			Namespace: "default",
+			Namespace: metav1.NamespaceDefault,
 			Labels:    serviceLabels,
 			Annotations: map[string]string{
 				"dns.gardener.cloud/dnsnames": r.getDNSName(m),
@@ -736,7 +737,7 @@ func (r *HttpBinDeploymentReconciler) serviceForHttpBin(m *orchestratev1alpha1.H
 
 func (r *HttpBinDeploymentReconciler) httpRouteForHttpBin(m *orchestratev1alpha1.HttpBinDeployment, svc *corev1.Service) *gatewayApi.HTTPRoute {
 	selectorLabels := map[string]string{
-		labelApp:       "httpbin",
+		labelApp:       appName,
 		labelHttpbinCr: getSelectorValue(m),
 	}
 
@@ -820,7 +821,7 @@ func (r *HttpBinDeploymentReconciler) httpRouteForHttpBin(m *orchestratev1alpha1
 func (r *HttpBinDeploymentReconciler) ingressForHttpBin(m *orchestratev1alpha1.HttpBinDeployment, svc *corev1.Service) *networkingv1.Ingress {
 	// Create minimal, static selector labels - these must never change
 	selectorLabels := map[string]string{
-		labelApp:       "httpbin",
+		labelApp:       appName,
 		labelHttpbinCr: getSelectorValue(m),
 	}
 
